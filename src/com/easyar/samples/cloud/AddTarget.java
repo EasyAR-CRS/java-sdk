@@ -36,6 +36,7 @@ public class AddTarget {
         Auth.signParam(params, APP_KEY, APP_SECRET);
 
         client.preparePost(HOST + "/targets/")
+                .setHeader("Content-Type","application/json")
                 .setBody(params.toString().getBytes())
                 .execute(new AsyncCompletionHandler<Void>() {
                     @Override
