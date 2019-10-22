@@ -5,6 +5,7 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
@@ -16,6 +17,8 @@ public class UpdateTarget {
     private static final String APP_SECRET = "--here is your crs image space's secret--";
 
     private static final String TARGET_ID  = "my_targetid";
+    private static final Path IMAGE_PATH   = Paths.get("test_target_image.jpg");
+    private static final int  MAXIMUM_SIZE = 2* 1024 * 1024; // maximum image / meta size is 2MB;
 
     public static void main(String[] args) throws IOException {
 
@@ -26,9 +29,12 @@ public class UpdateTarget {
         OkHttpClient client = builder.build();
 
         JSONObject params = new JSONObject();
-        params.put("image", Base64.getEncoder().encodeToString(
-                Files.readAllBytes(Paths.get("test_target_image.jpg"))));
-
+        byte[] image      = Files.readAllBytes(IMAGE_PATH);
+        if(image.length > MAXIMUM_SIZE) {
+            System.err.println("maximum image size is 2MB");
+            System.exit(-1);
+        }
+        params.put("image", Base64.getEncoder().encodeToString(image));
         //Here is target required info in EasyAR SDK 2.0+
         params.put("type","ImageTarget");
         params.put("name", "java-sdk-test");
