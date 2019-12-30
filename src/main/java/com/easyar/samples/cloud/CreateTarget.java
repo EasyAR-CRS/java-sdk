@@ -5,54 +5,42 @@ import org.json.JSONObject;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
 public class CreateTarget {
 
-    private static final String HOST       = "http://your_uuid.cn1.crs.easyar.com:8888";
-    private static final String APP_KEY    = "--here is your crs image space's key--";
-    private static final String APP_SECRET = "--here is your crs image space's secret--";
-    private static final Path   IMAGE_PATH = Paths.get("test_target_image.jpg");
-    private static final int   MAXIMUM_SIZE= 2* 1024 * 1024; // maximum image / meta size is 2MB;
+    private static final String TARGET_MGMT_URL = "http://cn1.crs.easyar.com:8888";
+    private static final String CRS_APPID       = "--here is your CRS AppId--";
+    private static final String API_KEY         = "--here is your API Key--";
+    private static final String API_SECRET      = "--here is your API Secret--";
+    private static final String IMAGE_PATH      = "test_target_image.jpg";
 
-    public static void main(String[] args) throws IOException {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder();
-        builder.connectTimeout(30, TimeUnit.SECONDS);
-        builder.readTimeout(120,TimeUnit.SECONDS);
-
-        OkHttpClient client = builder.build();
-
-        JSONObject params = new JSONObject();
-        byte[] image      = Files.readAllBytes(IMAGE_PATH);
-        if(image.length > MAXIMUM_SIZE) {
+    public String create(Auth auth, String imgPath) throws IOException{
+        byte[] image = Files.readAllBytes(Paths.get(imgPath));
+        if(image.length > Common.MAXIMUM_SIZE) {
             System.err.println("maximum image size is 2MB");
             System.exit(-1);
         }
-        params.put("image", Base64.getEncoder().encodeToString(image));
-        //Here is target required info in EasyAR SDK 2.0+
-        params.put("type","ImageTarget");
-        params.put("name", "java-sdk-test");
-        params.put("size", "20");
-        params.put("meta", Base64.getEncoder().encodeToString(
-                Files.readAllBytes(Paths.get("http://my.com/my-3d-model-example"))));  // This is customerized field to store AR content. e.x.: base64(2D picture) less than 2MB or URL of 3D model Object file
-
-        Auth.signParam(params, APP_KEY, APP_SECRET);
-
-        RequestBody requestBody = FormBody.create(MediaType.parse("application/json; charset=utf-8")
-                , params.toString());
+        JSONObject params = new JSONObject()
+                .put("name", "java-sdk-test")
+                .put("image", Base64.getEncoder().encodeToString(image))
+                .put("type","ImageTarget")
+                .put("size", "20")
+                .put("meta", "Your customized meta info");
+        RequestBody requestBody = FormBody.create(MediaType.parse("application/json; charset=utf-8"),
+                Auth.signParam(params, auth.getAppId(), auth.getApiKey(), auth.getApiSecret()).toString());
         Request request = new Request.Builder()
-                .url(HOST+"/targets")
+                .url(auth.getCloudURL() + "/targets")
                 .post(requestBody)
                 .build();
-        Call call = client.newCall(request);
-        try {
-            Response response = call.execute();
-            System.out.println(response.body().string());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        return new OkHttpClient.Builder().readTimeout(120,TimeUnit.SECONDS).build().newCall(request).execute().body().string();
+    }
+
+    public static void main(String[] args) throws IOException {
+        Auth accessInfo  =  new Auth(CRS_APPID, API_KEY, API_SECRET, TARGET_MGMT_URL);
+        JSONObject createResponse = new JSONObject(new CreateTarget().create(accessInfo, IMAGE_PATH)).getJSONObject(Common.KEY_RESULT);
+        System.out.println("created target: "+ createResponse.getString(Common.KEY_TARGETID));
     }
 }

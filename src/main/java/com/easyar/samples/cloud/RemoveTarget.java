@@ -1,41 +1,45 @@
 package com.easyar.samples.cloud;
 
-import okhttp3.Call;
-import okhttp3.OkHttpClient;
-import okhttp3.Response;
+import okhttp3.*;
 import org.json.JSONObject;
-
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 
 public class RemoveTarget {
 
-    private static final String HOST       = "http://your_uuid.cn1.crs.easyar.com:8888";
-    private static final String APP_KEY    = "--here is your crs image space's key--";
-    private static final String APP_SECRET = "--here is your crs image space's secret--";
+    private static final String TARGET_MGMT_URL = "http://cn1.crs.easyar.com:8888";
+    private static final String CRS_APPID       = "--here is your CRS AppId--";
+    private static final String API_KEY         = "--here is your API Key--";
+    private static final String API_SECRET      = "--here is your API Secret--";
+    private static final String TARGET_ID       = "my_targetid";
+    /* TO_DEL_IDs lists all the targetIds to be removed
+     * must be separated by ","
+     */
+    private static final String TO_DEL_IDs = "targetId1,targetId2,targetId3";
 
-    private static final String TARGET_ID  = "my_targetid";
-
-    public static void main(String[] args) {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder();
-        builder.connectTimeout(30, TimeUnit.SECONDS);
-        builder.readTimeout(120,TimeUnit.SECONDS);
-
-        OkHttpClient client = builder.build();
-
-        JSONObject params = new JSONObject();
-        Auth.signParam(params, APP_KEY, APP_SECRET);
-
+    public String remove(Auth auth, String targetId) throws IOException {
         okhttp3.Request request = new okhttp3.Request.Builder()
-                .url(HOST+"/target/"+TARGET_ID+"?"+ Common.toParam(params))
+                .url(auth.getCloudURL()+"/target/"+targetId+"?"+ Common.toParam(
+                        Auth.signParam(new JSONObject(), auth.getAppId(), auth.getApiKey(), auth.getApiSecret())
+                ))
                 .delete()
                 .build();
-        Call call = client.newCall(request);
-        try {
-            Response response = call.execute();
-            System.out.println(response.body().string());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        return new OkHttpClient.Builder().build().newCall(request).execute().body().string();
+    }
+
+    public String removeMultiTargets(Auth auth, String targetIds) throws IOException {
+        JSONObject params = new JSONObject().put("targetId", targetIds);
+        Auth.signParam(params, auth.getAppId(), auth.getApiKey(), auth.getApiSecret());
+        RequestBody requestBody = FormBody.create(MediaType.parse("application/json; charset=utf-8")
+                , params.toString());
+        okhttp3.Request request = new okhttp3.Request.Builder()
+                .url(auth.getCloudURL() + "/targets")
+                .delete(requestBody)
+                .build();
+        return new OkHttpClient.Builder().build().newCall(request).execute().body().string();
+    }
+    public static void main(String[] args) throws IOException{
+        Auth accessInfo  =  new Auth(CRS_APPID, API_KEY, API_SECRET, TARGET_MGMT_URL);
+        System.out.println(new RemoveTarget().remove(accessInfo, TARGET_ID));
+        System.out.println(new RemoveTarget().removeMultiTargets(accessInfo, TO_DEL_IDs));
     }
 }

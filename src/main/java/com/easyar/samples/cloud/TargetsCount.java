@@ -2,40 +2,28 @@ package com.easyar.samples.cloud;
 
 import okhttp3.*;
 import org.json.JSONObject;
-
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Base64;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 public class TargetsCount {
 
-    private static final String HOST       = "http://your_uuid.cn1.crs.easyar.com:8888";
-    private static final String APP_KEY    = "--here is your crs image space's key--";
-    private static final String APP_SECRET = "--here is your crs image space's secret--";
+    private static final String TARGET_MGMT_URL = "http://cn1.crs.easyar.com:8888";
+    private static final String CRS_APPID       = "--here is your CRS AppId--";
+    private static final String API_KEY         = "--here is your API Key--";
+    private static final String API_SECRET      = "--here is your API Secret--";
 
-    public static void main(String[] args) throws IOException {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder();
-        builder.connectTimeout(30, TimeUnit.SECONDS);
-        builder.readTimeout(120,TimeUnit.SECONDS);
-
-        OkHttpClient client = builder.build();
-
-        JSONObject params = new JSONObject();
-        Auth.signParam(params, APP_KEY, APP_SECRET);
-
+    public int count(Auth auth) throws IOException {
         okhttp3.Request request = new okhttp3.Request.Builder()
-                .url(HOST+"/targets/count?"+Common.toParam(params))
+                .url(auth.getCloudURL() + "/targets/count?"+Common.toParam(
+                        Auth.signParam(new JSONObject(), auth.getAppId(), auth.getApiKey(), auth.getApiSecret())
+                ))
                 .get()
                 .build();
-        Call call = client.newCall(request);
-        try {
-            Response response = call.execute();
-            System.out.println(response.body().string());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        Response response        = new OkHttpClient.Builder().build().newCall(request).execute();
+        JSONObject  responseBody = new JSONObject(response.body().string());
+        return responseBody.getJSONObject(Common.KEY_RESULT).getInt(Common.KEY_COUNT);
+    }
+    public static void main(String[] args) throws IOException {
+        Auth accessInfo  =  new Auth(CRS_APPID, API_KEY, API_SECRET, TARGET_MGMT_URL);
+        System.out.println("Target number in CRS App Instance: " + new TargetsCount().count(accessInfo) );
     }
 }
